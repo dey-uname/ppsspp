@@ -6,6 +6,5 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: |
-          curl -L https://raw.githubusercontent.com/dey-uname/glsl/refs/heads/main/ppsspp_glsl.patch | git apply --allow-empty
-          git add .
-          git commit -m "Applied patch glsl cache"
+          curl -L "https://raw.githubusercontent.com/dey-uname/glsi/main/ppsspp_glsl.patch" -o ppsspp.patch
+          patch -p1 < ppsspp.patch
