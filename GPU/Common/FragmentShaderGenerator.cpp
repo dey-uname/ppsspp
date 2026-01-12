@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <sstream>
 
+
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -33,6 +34,10 @@
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/Path.h"
+#include <unordered_set>
+
 
 #define WRITE(p, ...) p.F(__VA_ARGS__)
 
@@ -48,7 +53,50 @@ static const SamplerDef samplersStereo[3] = {
 	{ 2, "pal" },
 };
 
+static std::string GetShaderDumpDir() {
+#ifdef __ANDROID__
+    return "/storage/emulated/0/Android/data/org.ppsspp.ppsspp/files/glsl";
+#else
+    return "shader_dump";
+#endif
+}
+
+static std::string MakeFragmentShaderDumpPath(uint32_t shaderID) {
+    return StringUtils::Format("%s/fs_%08X.glsl",
+        GetShaderDumpDir().c_str(), shaderID);
+}
+
+static bool LoadShaderDump(uint32_t shaderID, std::string &out) {
+    std::string path = MakeFragmentShaderDumpPath(shaderID);
+    if (!File::Exists(path))
+        return false;
+
+    return File::ReadTextFileToString(path, out);
+}
+
+static void DumpShader(uint32_t shaderID, const std::string &src) {
+    static std::unordered_set<uint32_t> dumpedOnce;
+
+    if (dumpedOnce.count(shaderID))
+        return;
+
+    dumpedOnce.insert(shaderID);
+
+    File::CreateDir(GetShaderDumpDir());
+    std::string path = MakeFragmentShaderDumpPath(shaderID);
+    File::WriteStringToFile(true, src, path);
+}
+
 bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, FragmentShaderFlags *fragmentShaderFlags, std::string *errorString) {
+    uint32_t shaderID = id.ToUInt32();
+
+std::string dumpedSource;
+if (LoadShaderDump(shaderID, dumpedSource)) {
+    strncpy(buffer, dumpedSource.c_str(), MAX_SHADER_STRING_LENGTH - 1);
+    buffer[MAX_SHADER_STRING_LENGTH - 1] = '\0';
+    return true;
+}
+	
 	*uniformMask = 0;
 	*fragmentShaderFlags = (FragmentShaderFlags)0;
 	errorString->clear();
